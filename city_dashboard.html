@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>City Dashboard - Map & Highlights</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
+
+  <style>
+    :root{--accent:#2563eb;--muted:#6b7280}
+    body,html{height:100%;margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:#f8fafc;color:#0f172a}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:white;box-shadow:0 2px 6px rgba(2,6,23,0.06)}
+    header h1{margin:0;font-size:18px}
+    .container{display:grid;grid-template-columns:360px 1fr;gap:12px;padding:12px;height:calc(100% - 64px)}
+
+    /* Sidebar */
+    .sidebar{background:#fff;padding:12px;border-radius:8px;overflow:auto}
+    .card{background:#fff;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(2,6,23,0.03)}
+    #map{height:100%;border-radius:8px}
+    .place-item{display:flex;gap:8px;align-items:center;padding:8px;border-radius:6px;cursor:pointer}
+    .place-item:hover{background:#f1f5f9}
+    .place-thumb{width:64px;height:48px;border-radius:6px;background:#e2e8f0;flex-shrink:0;object-fit:cover}
+    .muted{color:var(--muted);font-size:13px}
+    .btn{background:var(--accent);color:white;padding:8px 10px;border-radius:6px;border:0;cursor:pointer}
+    .btn.secondary{background:#e6eefc;color:var(--accent)}
+
+    /* Modals */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.4);display:none;align-items:center;justify-content:center}
+    .modal{background:white;padding:16px;border-radius:10px;width:min(720px,96%);max-height:90%;overflow:auto}
+
+    /* small forms */
+    label{display:block;font-weight:600;margin-top:8px}
+    input,select,textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #e6eefc;background:#fff;margin-top:6px}
+
+    footer{padding:8px 18px;font-size:13px;color:var(--muted)}
+
+    .top-controls{display:flex;gap:8px;align-items:center}
+    .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+
+    @media(max-width:900px){.container{grid-template-columns:1fr} .sidebar{order:2;height:40vh}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>City Dashboard</h1>
+    <div class="top-controls">
+      <div id="userBadge" class="muted">Not logged in</div>
+      <button class="btn secondary" id="loginBtn">Login</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="card">
+        <strong>Search / Quick</strong>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <input id="search" placeholder="Search places, hotels..." />
+          <button class="btn" id="searchBtn">Go</button>
+        </div>
+        <div style="margin-top:10px" class="muted">Tip: Click a place to open details & route planner</div>
+      </div>
+
+      <div class="card">
+        <strong>Main Highlights</strong>
+        <div id="placesList" style="margin-top:8px">
+          <img class="place-thumb" src="https://source.unsplash.com/featured/?park">
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Weather</strong>
+        <div id="weatherInfo" class="muted" style="margin-top:8px">Choose a place to see weather</div>
+      </div>
+
+      <div class="card" id="adminCard" style="display:none">
+        <strong>Admin: Add Attraction</strong>
+        <form id="addPlaceForm">
+          <label>Name</label><input id="p_name" required />
+          <label>Latitude</label><input id="p_lat" required />
+          <label>Longitude</label><input id="p_lng" required />
+          <label>Timing (e.g. 9 AM - 6 PM)</label><input id="p_timing" />
+          <label>Entry Fee</label><input id="p_fee" />
+          <label>Photo URL</label><input id="p_photo" placeholder="https://..." />
+          <button class="btn" style="margin-top:8px">Add</button>
+        </form>
+      </div>
+
+    </aside>
+
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <footer>Built with HTML · CSS · JS · Leaflet · OpenStreetMap · OpenWeather (requires key). Data saved locally for demo.</footer>
+
+  <!-- Place Details Modal -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginBackdrop" class="modal-backdrop">
+    <div class="modal">
+     
+      <form id="loginForm">
+        <label>Name</label>
+        <input id="loginName" required />
+        <label>Role</label>
+        <select id="loginRole"><option value="traveller">Traveller</option><option value="admin">Admin</option></select>
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+          <button type="button" class="btn secondary" id="loginCancel">Cancel</button>
+          <button class="btn">Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+  <script>
+  // ------------------
+  // CONFIG (edit keys)
+  // ------------------
+  const OPENWEATHER_API_KEY = "YOUR_OPENWEATHER_API_KEY"; // <-- add your key for live weather
+
+  // ------------------
+  // Sample attractions - app will persist user-added ones to localStorage
+  // ------------------
+  const defaultPlaces = [
+    {id:1,name:"Central Park",lat:40.785091,lng:-73.968285,timing:"6:00 - 22:00",fee:"Free",photo:"https://source.unsplash.com/featured/?park"},
+    {id:2,name:"City Museum",lat:40.779437,lng:-73.963244,timing:"9:00 - 18:00",fee:"$12",photo:"https://source.unsplash.com/featured/?museum"},
+    {id:3,name:"Grand Hotel",lat:40.758896,lng:-73.985130,timing:"24/7",fee:"Varies",photo:"https://source.unsplash.com/featured/?hotel"}
+  ];
+
+  // ------------------
+  // Helpers
+  // ------------------
+  function $(id){return document.getElementById(id)}
+  function savePlaces(arr){localStorage.setItem('places_v1',JSON.stringify(arr))}
+  function loadPlaces(){const p=localStorage.getItem('places_v1'); return p?JSON.parse(p):defaultPlaces}
+  function haversineDist(lat1,lon1,lat2,lon2){const toRad=Math.PI/180;const R=6371;const dLat=(lat2-lat1)*toRad;const dLon=(lon2-lon1)*toRad;const a=Math.sin(dLat/2)**2 + Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)**2;const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));return R*c}
+
+  // ------------------
+  // Map init
+  // ------------------
+  let map = L.map('map').setView([20.5937,78.9629],5); // default India view
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+
+  let places = loadPlaces();
+  let markers = {};
+  const placesListEl = $('placesList');
+
+  function renderPlacesList(){placesListEl.innerHTML='';places.forEach(p=>{
+    const div = document.createElement('div');div.className='place-item';div.innerHTML=`<img class='place-thumb' src='${p.photo||"https://source.unsplash.com/featured/?landmark"}' /><div style='flex:1'><strong>${p.name}</strong><div class='muted'>${p.timing} · ${p.fee}</div></div><div class='muted'>${(p.distance?Math.round(p.distance*10)/10+' km':'—')}</div>`;
+    div.onclick=()=>openPlaceDetails(p.id);
+    placesListEl.appendChild(div);
+  })}
+
+  function addMarkerForPlace(p){
+    const m = L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<strong>${p.name}</strong><div class='muted'>${p.timing}</div><div style='margin-top:6px'><button onclick="openPlaceDetails(${p.id})">Details</button></div>`);
+    markers[p.id]=m;
+  }
+
+  function refreshMarkers(){ Object.values(markers).forEach(m=>map.removeLayer(m)); markers={}; places.forEach(addMarkerForPlace); }
+
+  renderPlacesList(); refreshMarkers();
+
+  // Fit to markers
+  if(places.length) map.fitBounds(places.map(p=>[p.lat,p.lng]),{padding:[40,40]});
+
+  // ------------------
+  // Place Details + Route Planner
+  // ------------------
+  let routingControl = null;
+  function openPlaceDetails(id){
+    const p = places.find(x=>x.id==id); if(!p) return;
+
+    // distance from user (if available)
+    const userPos = JSON.parse(sessionStorage.getItem('user_location')||'null');
+    if(userPos){ p.distance = haversineDist(userPos.lat,userPos.lng,p.lat,p.lng); }
+
+    const modal = $('modalContent');
+    modal.innerHTML = `
+      <div style='display:flex;gap:12px'>
+        <img src='${p.photo||"https://source.unsplash.com/featured/?landmark"}' style='width:220px;height:140px;object-fit:cover;border-radius:8px' />
+        <div style='flex:1'>
+          <h2 style='margin:0'>${p.name}</h2>
+          <div class='muted' style='margin-top:6px'>${p.timing} · Entry: ${p.fee}</div>
+          <div style='margin-top:8px'>Distance: <strong>${p.distance?Math.round(p.distance*10)/10+' km':'Unknown (allow location)'}</strong></div>
+        </div>
+      </div>
+      <div style='margin-top:12px;display:flex;gap:8px'>
+        <button class='btn' id='routeFromHere'>Route from my location</button>
+        <button class='btn secondary' id='closeModal'>Close</button>
+      </div>
+
+      <hr />
+      <div><strong>Nearby food spots</strong><div class='muted' id='nearbyFood'>Loading sample nearby spots...</div></div>
+      <hr />
+      <div><strong>Weather</strong><div id='placeWeather' class='muted'>Loading...</div></div>
+    `;
+
+    $('modalBackdrop').style.display='flex';
+
+    // sample nearby food - in production replace with Foursquare / Google Places API
+    const sampleFood = [
+      {name:'Cafe Aroma',dist:'0.4 km'},
+      {name:'Street Bites',dist:'0.6 km'},
+      {name:'Fine Dine Bistro',dist:'0.9 km'}
+    ];
+    $('nearbyFood').innerHTML = sampleFood.map(s=>`<div>${s.name} <span class='muted'>· ${s.dist}</span></div>`).join('');
+
+    // weather
+    fetchWeatherForLatLng(p.lat,p.lng).then(html=>$('placeWeather').innerHTML=html).catch(e=>$('placeWeather').innerHTML='Weather not available');
+
+    $('closeModal').onclick=()=>{$('modalBackdrop').style.display='none'; if(routingControl){map.removeControl(routingControl); routingControl=null;}}
+
+    $('routeFromHere').onclick=async()=>{
+      // get user location from browser or session
+      let loc = userPos;
+      if(!loc){
+        try{ const pos = await getCurrentLocation(); loc = {lat:pos.coords.latitude,lng:pos.coords.longitude}; sessionStorage.setItem('user_location',JSON.stringify(loc));
+        }catch(err){alert('Could not get location: '+err.message);return}
+      }
+
+      // remove previous routing
+      if(routingControl) map.removeControl(routingControl);
+      routingControl = L.Routing.control({ waypoints:[L.latLng(loc.lat,loc.lng),L.latLng(p.lat,p.lng)], showAlternatives:false,routeWhileDragging:false }).addTo(map);
+      $('modalBackdrop').style.display='none';
+    }
+  }
+
+  // ------------------
+  // Weather integration (OpenWeather) - requires API key
+  // ------------------
+  async function fetchWeatherForLatLng(lat,lng){
+    if(!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY=="YOUR_OPENWEATHER_API_KEY") return '<span class="muted">Add OPENWEATHER_API_KEY in the file to see live weather</span>';
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${OPENWEATHER_API_KEY}`;
+    const res = await fetch(url); if(!res.ok) throw new Error('Weather fetch failed');
+    const data = await res.json();
+    return `<div>${data.weather[0].description}, ${Math.round(data.main.temp)}°C · Humidity ${data.main.humidity}%</div>`;
+  }
+
+  // ------------------
+  // Search
+  // ------------------
+  $('searchBtn').onclick = ()=>{
+    const q = $('search').value.toLowerCase().trim(); if(!q) return renderPlacesList();
+    const filtered = places.filter(p=>p.name.toLowerCase().includes(q));
+    placesListEl.innerHTML=''; filtered.forEach(p=>{
+      const div = document.createElement('div');div.className='place-item';div.innerHTML=`<img class='place-thumb' src='${p.photo||"https://source.unsplash.com/featured/?landmark"}' /><div style='flex:1'><strong>${p.name}</strong><div class='muted'>${p.timing} · ${p.fee}</div></div>`;div.onclick=()=>openPlaceDetails(p.id);placesListEl.appendChild(div);
+    })
+  }
+
+  // ------------------
+  // Login (demo)
+  // ------------------
+  $('loginBtn').onclick = ()=>{$('loginBackdrop').style.display='flex';}
+  $('loginCancel').onclick = ()=>{$('loginBackdrop').style.display='none'}
+  $('loginForm').onsubmit = (e)=>{e.preventDefault();const name=$('loginName').value.trim();const role=$('loginRole').value;sessionStorage.setItem('user_name',name);sessionStorage.setItem('user_role',role);$('loginBackdrop').style.display='none';updateUserUI();}
+
+  function updateUserUI(){const name=sessionStorage.getItem('user_name');const role=sessionStorage.getItem('user_role'); if(name){$('userBadge').textContent = name + ' · ' + role; $('loginBtn').textContent='Logout'; if(role==='admin') $('adminCard').style.display='block'; else $('adminCard').style.display='none'; $('loginBtn').onclick = ()=>{sessionStorage.clear();location.reload();}; } else { $('userBadge').textContent='Not logged in'; $('loginBtn').textContent='Login'; $('loginBtn').onclick=()=>$('loginBackdrop').style.display='flex' }}
+  updateUserUI();
+
+  // ------------------
+  // Add place (admin)
+  // ------------------
+  $('addPlaceForm').onsubmit = (e)=>{e.preventDefault(); const id = Date.now(); const p={id:id,name:$('p_name').value,lat:parseFloat($('p_lat').value),lng:parseFloat($('p_lng').value),timing:$('p_timing').value,fee:$('p_fee').value,photo:$('p_photo').value}; places.push(p); savePlaces(places); renderPlacesList(); addMarkerForPlace(p); $('p_name').value='';$('p_lat').value='';$('p_lng').value='';alert('Place added locally (admin)');}
+
+  // ------------------
+  // On map click: quick add start marker or show coords
+  // ------------------
+  let userMarker=null;
+  map.on('click',e=>{
+    if(userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker(e.latlng,{draggable:true}).addTo(map).bindPopup('Custom point (drag to move)').openPopup();
+    sessionStorage.setItem('user_location',JSON.stringify({lat:e.latlng.lat,lng:e.latlng.lng}));
+  })
+
+  // ------------------
+  // getCurrentLocation helper
+  // ------------------
+  function getCurrentLocation(){return new Promise((res,rej)=>{if(!navigator.geolocation) return rej(new Error('Geolocation not supported'));navigator.geolocation.getCurrentPosition(res,rej)})}
+
+  // Try to get browser location to compute distances
+  (async ()=>{try{const pos=await getCurrentLocation();sessionStorage.setItem('user_location',JSON.stringify({lat:pos.coords.latitude,lng:pos.coords.longitude})); // compute distances
+    const user=JSON.parse(sessionStorage.getItem('user_location'));
+    places.forEach(p=>{p.distance = haversineDist(user.lat,user.lng,p.lat,p.lng)});
+    renderPlacesList();
+  }catch(e){/* ignore */}})();
+
+  // ------------------
+  // Expose small helpers for inline onclick
+  // ------------------
+  window.openPlaceDetails = openPlaceDetails;
+
+  </script>
+<script>
+const API_BASE = "http://localhost:5000";
+let places = [];
+
+async function loadPlacesFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE}/api/places`);
+    places = await res.json();
+    if (typeof refreshMarkers === 'function') refreshMarkers();
+    if (typeof renderPlacesList === 'function') renderPlacesList();
+  } catch (err) {
+    console.error('Failed to load places:', err);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadPlacesFromBackend();
+});
+
+const addPlaceForm = document.getElementById("addPlaceForm");
+if (addPlaceForm) {
+  addPlaceForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
+    if (!token) return alert("Login as admin to add attractions.");
+    const body = {
+      name: document.getElementById("p_name").value.trim(),
+      lat: Number(document.getElementById("p_lat").value),
+      lng: Number(document.getElementById("p_lng").value),
+      timing: document.getElementById("p_timing").value.trim(),
+      fee: document.getElementById("p_fee").value.trim(),
+      photo: document.getElementById("p_photo").value.trim()
+    };
+    try {
+      const res = await fetch(`${API_BASE}/api/places`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.message || "Failed to add place");
+      places.unshift(data);
+      if (typeof refreshMarkers === 'function') refreshMarkers();
+      if (typeof renderPlacesList === 'function') renderPlacesList();
+      addPlaceForm.reset();
+      alert("Place added!");
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
+  });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart City Travel | Login & Signup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #2193b0, #6dd5ed);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      background: white;
+      width: 380px;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+      transition: 0.4s;
+    }
+
+    .container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    .input-group input:focus {
+      border-color: #2193b0;
+      box-shadow: 0 0 5px #6dd5ed;
+    }
+
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, #2193b0, #6dd5ed);
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+    }
+
+    .toggle-text {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .toggle-text a {
+      color: #2193b0;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Form animations */
+    .form {
+      transition: 0.5s;
+    }
+
+    .form.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(100%);
+      position: absolute;
+      top: 30px;
+      left: 0;
+      width: 100%;
+    }
+
+    .form.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateX(0);
+    }
+
+    /* Success message */
+    .success {
+      text-align: center;
+      color: green;
+      font-weight: 600;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container" id="formContainer">
+    <!-- Login Form -->
+    <div class="form active" id="loginForm">
+      <h2>Login</h2>
+      <div class="input-group">
+        <input type="text" id="loginEmail" placeholder="Email" />
+      </div>
+      <div class="input-group">
+        <input type="password" id="loginPassword" placeholder="Password" />
+      </div>
+      <button class="btn" onclick="login()">Login</button>
+      <p class="toggle-text">Don’t have an account? <a onclick="toggleForm()">Sign up</a></p>
+      <p class="success" id="loginMsg"></p>
+    </div>
+
+    <!-- Signup Form -->
+    <div class="form hidden" id="signupForm">
+      <h2>Sign Up</h2>
+      <div class="input-group">
+        <input type="text" id="signupName" placeholder="Full Name" />
+      </div>
+      <div class="input-group">
+        <input type="email" id="signupEmail" placeholder="Email" />
+      </div>
+      <div class="input-group">
+        <input type="password" id="signupPassword" placeholder="Password" />
+      </div>
+      <button class="btn" onclick="signup()">Create Account</button>
+      <p class="toggle-text">Already have an account? <a onclick="toggleForm()">Login</a></p>
+      <p class="success" id="signupMsg"></p>
+    </div>
+  </div>
+
+  <script>
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+
+    function toggleForm() {
+      loginForm.classList.toggle("active");
+      loginForm.classList.toggle("hidden");
+      signupForm.classList.toggle("active");
+      signupForm.classList.toggle("hidden");
+    }
+
+    function signup() {
+      const name = document.getElementById("signupName").value;
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+      const msg = document.getElementById("signupMsg");
+
+      if (!name || !email || !password) {
+        msg.style.color = "red";
+        msg.textContent = "All fields are required!";
+        return;
+      }
+
+      localStorage.setItem("userEmail", email);
+      localStorage.setItem("userPassword", password);
+      msg.style.color = "green";
+      msg.textContent = "Account created successfully!";
+      setTimeout(() => {
+        toggleForm();
+        msg.textContent = "";
+      }, 1500);
+    }
+
+    function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      const msg = document.getElementById("loginMsg");
+
+      const savedEmail = localStorage.getItem("userEmail");
+      const savedPassword = localStorage.getItem("userPassword");
+
+      if (email === savedEmail && password === savedPassword) {
+        msg.style.color = "green";
+        msg.textContent = "Login successful! Redirecting...";
+        setTimeout(() => {
+          window.location.href = "city_dashboard.html"; // replace with your next page
+        }, 1500);
+      } else {
+        msg.style.color = "red";
+        msg.textContent = "Invalid credentials!";
+      }
+    }
+  </script>
+
+<script>
+const API_BASE = "http://localhost:5000";
+
+async function login() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+  const loginMsg = document.getElementById("loginMsg");
+  if(loginMsg) loginMsg.textContent = "";
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if(loginMsg){ loginMsg.style.color = "red"; loginMsg.textContent = data.message || "Login failed"; }
+      return;
+    }
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    if(loginMsg){ loginMsg.style.color = "green"; loginMsg.textContent = "Login successful!"; }
+    setTimeout(()=> window.location.href = "index.html", 700);
+  } catch (err) {
+    if(loginMsg){ loginMsg.style.color = "red"; loginMsg.textContent = "Network error"; }
+    console.error(err);
+  }
+}
+
+async function signup() {
+  const name = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value.trim();
+  const signupMsg = document.getElementById("signupMsg");
+  if(signupMsg) signupMsg.textContent = "";
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if(signupMsg){ signupMsg.style.color = "red"; signupMsg.textContent = data.message || "Signup failed"; }
+      return;
+    }
+    if(signupMsg){ signupMsg.style.color = "green"; signupMsg.textContent = "Account created! Login now."; }
+  } catch (err) {
+    if(signupMsg){ signupMsg.style.color = "red"; signupMsg.textContent = "Network error"; }
+    console.error(err);
+  }
+}
+</script>
+
+</body>
+</html>

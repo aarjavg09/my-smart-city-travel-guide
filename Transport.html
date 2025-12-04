@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Transport Suggestion — Smart City Travel Guide</title>
+  <!-- Tailwind Play CDN for quick, modern UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet for map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2H0gqk0r0pF5vFzF0x7Yb8qk2q5f5b3v6i9e1no=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j6YF8b2h2cZQTFQ+Q0S8tY7t2qZf5x3kB0y5Y= " crossorigin=""></script>
+  <style>
+    #map{ height: 100%; min-height: 420px; }
+    .transport-icon{ width: 30px; height: 30px; border-radius: 6px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <header class="bg-white shadow p-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">Smart Transport Suggestion</h1>
+      <p class="text-sm text-slate-500">Nearby metro, bus, cab, and e-bike availability — demo with dummy dataset</p>
+    </div>
+    <div class="flex gap-2 items-center">
+      <button id="locateBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Use my location</button>
+      <button id="refreshBtn" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Refresh (simulate)</button>
+    </div>
+  </header>
+
+  <main class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Left: Map -->
+    <section class="lg:col-span-2 h-[70vh] bg-white rounded shadow overflow-hidden">
+      <div id="map"></div>
+    </section>
+
+    <!-- Right: Controls and list -->
+    <aside class="space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <label class="block text-sm font-medium text-slate-600">Search location</label>
+        <div class="mt-2 flex gap-2">
+          <input id="searchInput" class="flex-1 px-3 py-2 border rounded" placeholder="Enter lat,lng (e.g. 28.6139,77.2090) or leave blank and use 'Use my location'" />
+          <button id="searchBtn" class="px-3 py-2 bg-sky-600 text-white rounded">Go</button>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Tip: this demo uses a simulated dataset. Toggle the "Use real API" switch to see instructions for integrating Google Transit API.</p>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Filters</h3>
+          <div class="text-sm text-slate-500">Within <span id="radiusVal">2</span> km</div>
+        </div>
+
+        <div class="flex gap-2">
+          <button class="filterBtn px-3 py-1 rounded border" data-filter="all">All</button>
+          <button class="filterBtn px-3 py-1 rounded border" data-filter="metro">Metro</button>
+          <button class="filterBtn px-3 py-1 rounded border" data-filter="bus">Bus</button>
+          <button class="filterBtn px-3 py-1 rounded border" data-filter="cab">Cab</button>
+          <button class="filterBtn px-3 py-1 rounded border" data-filter="ebike">E‑bike</button>
+        </div>
+
+        <div class="mt-2">
+          <input id="radius" type="range" min="0.5" max="10" step="0.5" value="2" />
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow overflow-y-auto max-h-[40vh]" id="listPanel">
+        <h3 class="font-semibold mb-2">Nearby options</h3>
+        <div id="list"></div>
+      </div>
+
+      <div class="bg-white p-3 rounded shadow">
+        <label class="flex items-center gap-2"><input type="checkbox" id="useRealApi" /> <span class="text-sm">Use Google Transit API (switch for instructions)</span></label>
+        <div id="apiInstructions" class="mt-3 text-xs text-slate-500 hidden">
+          <strong>How to integrate:</strong>
+          <ol class="list-decimal ml-5 mt-1">
+            <li>Enable Google Maps Platform + Directions/Transit API and get an API key.</li>
+            <li>Use Places/Geocoding to convert an address to lat/lng or use browser geolocation.</li>
+            <li>Call Transit/Directions endpoints to get real transit legs and ETA, then render markers instead of the dummy dataset.</li>
+            <li>Replace the `fetchDummyData()` function in this demo with your API fetch and adapt the objects to the demo format.</li>
+          </ol>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <footer class="p-4 text-center text-xs text-slate-400">Demo — no external API keys required. Data is simulated for UI demonstration.</footer>
+
+  <script>
+    // -------------------- Dummy dataset --------------------
+    // Each item: id, name, type (metro|bus|cab|ebike), lat, lng, availability, etaMin
+    const DUMMY = [
+      {id:1,name:"Central Metro Station",type:"metro",lat:28.6329,lng:77.2195,availability:5,etaMin:2},
+      {id:2,name:"Museum Bus Stop",type:"bus",lat:28.6280,lng:77.2160,availability:2,etaMin:5},
+      {id:3,name:"City Cab Stand",type:"cab",lat:28.6200,lng:77.2100,availability:8,etaMin:3},
+      {id:4,name:"Green E‑bike Dock A",type:"ebike",lat:28.6190,lng:77.2150,availability:4,etaMin:1},
+      {id:5,name:"East Metro Station",type:"metro",lat:28.6350,lng:77.2050,availability:3,etaMin:4},
+      {id:6,name:"North Bus Stop",type:"bus",lat:28.6400,lng:77.2120,availability:0,etaMin:12},
+      {id:7,name:"E‑bike Dock B",type:"ebike",lat:28.6120,lng:77.2100,availability:1,etaMin:2},
+      {id:8,name:"Cab Pool X",type:"cab",lat:28.6100,lng:77.2200,availability:6,etaMin:4}
+    ];
+
+    // Map setup
+    const map = L.map('map', {zoomControl:true}).setView([28.6139,77.2090], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+
+    // Layer group for markers
+    const markersGroup = L.layerGroup().addTo(map);
+
+    // icons for types
+    const iconHtml = {
+      metro: '<div class="transport-icon bg-indigo-500 text-white">M</div>',
+      bus: '<div class="transport-icon bg-amber-500 text-white">B</div>',
+      cab: '<div class="transport-icon bg-rose-500 text-white">C</div>',
+      ebike: '<div class="transport-icon bg-green-600 text-white">E</div>'
+    };
+
+    function createDivIcon(html){
+      return L.divIcon({ html: html, className:'', iconSize:[36,36], iconAnchor:[18,18] });
+    }
+
+    // Utility: haversine (km)
+    function haversine([lat1,lng1],[lat2,lng2]){
+      const toRad = a => a*Math.PI/180;
+      const R = 6371; // km
+      const dLat = toRad(lat2-lat1);
+      const dLon = toRad(lng2-lng1);
+      const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+      const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R*c;
+    }
+
+    // Simulate dynamic availability changes
+    function perturbData(data){
+      return data.map(item => ({...item, availability: Math.max(0, item.availability + Math.floor((Math.random()-0.4)*2)), etaMin: Math.max(1, item.etaMin + Math.floor((Math.random()-0.5)*3)) }));
+    }
+
+    let currentData = [...DUMMY];
+
+    // Render markers and list based on center, radius, filter
+    function render(center, radiusKm=2, filter='all'){
+      markersGroup.clearLayers();
+      const listEl = document.getElementById('list');
+      listEl.innerHTML = '';
+
+      const data = currentData.filter(item => {
+        const dist = haversine([center.lat,center.lng],[item.lat,item.lng]);
+        item._distance = +(dist.toFixed(2));
+        return dist <= radiusKm && (filter==='all' || item.type===filter);
+      }).sort((a,b)=>a._distance - b._distance);
+
+      if(data.length===0){ listEl.innerHTML = '<div class="text-sm text-slate-500">No transports found in this radius. Try increasing radius or selecting All.</div>'; }
+
+      data.forEach(item => {
+        const icon = createDivIcon(iconHtml[item.type]);
+        const marker = L.marker([item.lat,item.lng],{icon}).addTo(markersGroup);
+        marker.bindPopup(`<strong>${item.name}</strong><br/>Type: ${item.type.toUpperCase()}<br/>Available: ${item.availability}<br/>ETA: ${item.etaMin} min<br/><button onclick=reserve(${item.id}) class='mt-2 px-2 py-1 bg-indigo-600 text-white rounded'>Reserve (demo)</button>`);
+
+        const card = document.createElement('div');
+        card.className = 'p-2 border-b last:border-0';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium">${item.name}</div>
+              <div class="text-xs text-slate-500">${item.type.toUpperCase()} • ${item._distance} km</div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-semibold">${item.availability} avail</div>
+              <div class="text-xs text-slate-400">ETA ${item.etaMin} min</div>
+            </div>
+          </div>
+        `;
+        card.addEventListener('click', ()=>{ map.setView([item.lat,item.lng],16); marker.openPopup(); });
+        listEl.appendChild(card);
+      });
+
+      // Fit bounds if there are markers
+      if(markersGroup.getLayers().length>0){
+        const group = markersGroup.getBounds();
+        map.fitBounds(group.pad(0.6));
+      }
+    }
+
+    // Reserve simulation
+    window.reserve = function(id){
+      const item = currentData.find(i=>i.id===id);
+      if(!item) return alert('Item not found');
+      if(item.availability<=0) return alert('No availability for ' + item.name);
+      item.availability -=1;
+      alert('Reserved (demo) — ' + item.name + '\nRemaining: ' + item.availability);
+      render(lastCenter, currentRadius, currentFilter);
+    }
+
+    // Controls
+    const radiusInput = document.getElementById('radius');
+    const radiusVal = document.getElementById('radiusVal');
+    radiusInput.addEventListener('input', ()=>{ radiusVal.innerText = radiusInput.value; currentRadius = parseFloat(radiusInput.value); render(lastCenter,currentRadius,currentFilter); });
+
+    let lastCenter = {lat:28.6139,lng:77.2090};
+    let currentRadius = parseFloat(radiusInput.value);
+    let currentFilter = 'all';
+
+    document.querySelectorAll('.filterBtn').forEach(b=>b.addEventListener('click', (e)=>{
+      document.querySelectorAll('.filterBtn').forEach(x=>x.classList.remove('bg-slate-100'));
+      e.target.classList.add('bg-slate-100');
+      currentFilter = e.target.dataset.filter;
+      render(lastCenter,currentRadius,currentFilter);
+    }));
+
+    document.getElementById('refreshBtn').addEventListener('click', ()=>{ currentData = perturbData(currentData); render(lastCenter,currentRadius,currentFilter); });
+
+    document.getElementById('locateBtn').addEventListener('click', ()=>{
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+          lastCenter = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+          map.setView([lastCenter.lat,lastCenter.lng],14);
+          render(lastCenter,currentRadius,currentFilter);
+        }, err=>{
+          alert('Geolocation error or permission denied. Use lat,lng input instead.');
+        });
+      } else alert('Geolocation not supported');
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', ()=>{
+      const v = document.getElementById('searchInput').value.trim();
+      if(!v) return alert('Enter lat,lng or use location');
+      const parts = v.split(',').map(s=>parseFloat(s.trim()));
+      if(parts.length!==2 || parts.some(isNaN)) return alert('Enter coordinates like: 28.6139,77.2090');
+      lastCenter = {lat: parts[0], lng: parts[1]};
+      map.setView([lastCenter.lat,lastCenter.lng],14);
+      render(lastCenter,currentRadius,currentFilter);
+    });
+
+    // Toggle API instructions
+    document.getElementById('useRealApi').addEventListener('change', (e)=>{
+      document.getElementById('apiInstructions').classList.toggle('hidden', !e.target.checked);
+    });
+
+    // Initial render
+    render(lastCenter,currentRadius,currentFilter);
+
+    // Small UX: auto-perturb every 20s to simulate live changes
+    setInterval(()=>{ currentData = perturbData(currentData); render(lastCenter,currentRadius,currentFilter); }, 20000);
+
+    // Fetch dummy placeholder (if you want to replace with API call, modify this function)
+    async function fetchDummyData(){
+      // In a real integration you'd fetch from your backend or a transit API
+      return DUMMY;
+    }
+
+  </script>
+</body>
+</html>

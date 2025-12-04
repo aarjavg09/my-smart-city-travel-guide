@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart City AI Itinerary Generator</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(120deg, #00b4db, #0083b0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    color: #fff;
+  }
+
+  header {
+    margin-top: 40px;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+
+  .container {
+    width: 90%;
+    max-width: 850px;
+    margin-top: 30px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 20px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    padding: 2rem;
+    transition: all 0.3s ease-in-out;
+  }
+
+  h2, h3 {
+    text-align: center;
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .preferences {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+  }
+
+  input[type="checkbox"] {
+    display: none;
+  }
+
+  label {
+    background: rgba(255,255,255,0.2);
+    padding: 12px 25px;
+    border-radius: 30px;
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 1rem;
+  }
+
+  input[type="checkbox"]:checked + label {
+    background: linear-gradient(135deg, #ff9966, #ff5e62);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(255,255,255,0.6);
+  }
+
+  select {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    border-radius: 25px;
+    border: none;
+    font-size: 1rem;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    backdrop-filter: blur(8px);
+    outline: none;
+  }
+
+  option { color: #000; }
+
+  button {
+    display: block;
+    margin: 25px auto;
+    padding: 12px 35px;
+    font-size: 1.1rem;
+    color: white;
+    background: linear-gradient(135deg, #ff758c, #ff7eb3);
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: all 0.3s;
+  }
+
+  button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255,255,255,0.4);
+  }
+
+  .output {
+    margin-top: 20px;
+    background: rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 15px;
+    color: #fff;
+    line-height: 1.7;
+    font-size: 1rem;
+    overflow: hidden;
+    border-left: 4px solid #ff7eb3;
+  }
+
+  ul { list-style: none; padding-left: 0; }
+  li { margin-bottom: 8px; }
+
+  @keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  .typing {
+    border-right: 2px solid rgba(255,255,255,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    animation: typing 3s steps(40, end);
+  }
+
+  @media (max-width: 600px) {
+    label { font-size: 0.9rem; padding: 10px 20px; }
+    button { width: 100%; }
+  }
+</style>
+</head>
+
+<body>
+  <header>AI Planner</header>
+
+  <div class="container">
+    <h2>Tell us what you love</h2>
+    <div class="preferences">
+      <input type="checkbox" id="nature" value="Nature"><label for="nature">🌿 Nature</label>
+      <input type="checkbox" id="history" value="History"><label for="history">🏛️ History</label>
+      <input type="checkbox" id="food" value="Food"><label for="food">🍽️ Food</label>
+      <input type="checkbox" id="adventure" value="Adventure"><label for="adventure">🚵 Adventure</label>
+    </div>
+
+    <h3>Trip Duration</h3>
+    <select id="duration">
+      <option value="1">1-Day Plan</option>
+      <option value="2">2-Day Plan</option>
+    </select>
+
+    <button onclick="generateItinerary()">✨ Generate Itinerary</button>
+    <div id="output" class="output"></div>
+  </div>
+
+<script>
+const spots = {
+  Nature: [
+    { name: "City Botanical Garden", time: "9 AM – 11 AM" },
+    { name: "Lakeside Park", time: "4 PM – 6 PM" },
+    { name: "Hill View Point", time: "6 AM – 8 AM" }
+  ],
+  History: [
+    { name: "Ancient Fort", time: "10 AM – 12 PM" },
+    { name: "City Museum", time: "1 PM – 3 PM" },
+    { name: "Old Town Heritage Walk", time: "5 PM – 7 PM" }
+  ],
+  Food: [
+    { name: "Central Street Food Market", time: "12 PM – 2 PM" },
+    { name: "Riverfront Café", time: "7 PM – 9 PM" },
+    { name: "Local Sweet Shop Tour", time: "3 PM – 4 PM" }
+  ],
+  Adventure: [
+    { name: "Rock Climbing Zone", time: "8 AM – 10 AM" },
+    { name: "Zipline Adventure Park", time: "3 PM – 5 PM" },
+    { name: "Night Trek Trail", time: "9 PM – 11 PM" }
+  ]
+};
+
+function generateItinerary() {
+  const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  const days = parseInt(document.getElementById("duration").value);
+  const output = document.getElementById("output");
+  output.innerHTML = "";
+
+  if (selected.length === 0) {
+    output.innerHTML = "<b>Please select at least one interest!</b>";
+    return;
+  }
+
+  let itinerary = `<div class='typing'><h3>🗓️ ${days}-Day Itinerary</h3></div>`;
+  for (let d = 1; d <= days; d++) {
+    itinerary += `<h4>Day ${d}</h4><ul>`;
+    selected.forEach(pref => {
+      const choice = spots[pref][Math.floor(Math.random() * spots[pref].length)];
+      itinerary += `<li><b>${choice.name}</b> — ${choice.time} (${pref})</li>`;
+    });
+    itinerary += `</ul>`;
+  }
+
+  // Typing animation effect
+  let i = 0;
+  const speed = 15;
+  const text = itinerary;
+  const tempDiv = document.createElement("div");
+  output.appendChild(tempDiv);
+  function typeWriter() {
+    if (i < text.length) {
+      tempDiv.innerHTML = text.substring(0, i + 1);
+      i++;
+      setTimeout(typeWriter, speed);
+    }
+  }
+  typeWriter();
+}
+</script>
+<script>
+const API_BASE = "http://localhost:5000";
+
+async function generateItinerary() {
+  alert("Button Clicked!");
+  console.log("Checking connection");
+  const selected = [];
+  if (document.getElementById("nature") && document.getElementById("nature").checked) selected.push("Nature");
+  if (document.getElementById("history") && document.getElementById("history").checked) selected.push("History");
+  if (document.getElementById("food") && document.getElementById("food").checked) selected.push("Food");
+  if (document.getElementById("adventure") && document.getElementById("adventure").checked) selected.push("Adventure");
+  const durationEl = document.getElementById("duration");
+  const duration = durationEl ? durationEl.value : 1;
+  const output = document.getElementById("output");
+  if(output) output.textContent = "Generating itinerary...";
+  try {
+    const res = await fetch(`${API_BASE}/api/itinerary/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preferences: selected, duration })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if(output) output.textContent = data.message || "Failed to generate itinerary";
+      return;
+    }
+    let html = "";
+    data.days.forEach(day => {
+      html += `<h4>Day ${day.day}</h4><ul>`;
+      day.items.forEach(item => {
+        html += `<li><strong>[${item.category}]</strong> ${item.time} — ${item.name} (${item.note})</li>`;
+      });
+      html += "</ul><hr/>";
+    });
+    if(output) output.innerHTML = html;
+  } catch (err) {
+    console.error(err);
+    if(output) output.textContent = "Network error";
+  }
+}
+</script>
+
+</body>
+</html>
