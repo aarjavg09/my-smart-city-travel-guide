@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Your Trip</title>
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: #e3f2fd; text-align: center; padding: 40px; }
+        .container { background: white; padding: 30px; border-radius: 15px; width: 300px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #1565c0; }
+        input, select { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: #1565c0; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { background: #0d47a1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🌍 Book Trip Package</h2>
+        <input type="text" id="name" placeholder="Your Name" required>
+        <select id="package">
+            <option value="Nature Trip">Nature Trip</option>
+            <option value="History Tour">History Tour</option>
+            <option value="Food Walk">Food Walk</option>
+        </select>
+        <input type="date" id="date" required>
+        <button onclick="bookTrip()">Confirm Booking</button>
+        <p id="msg"></p>
+    </div>
+
+    <script>
+        async function bookTrip() {
+            const name = document.getElementById('name').value;
+            const pkg = document.getElementById('package').value;
+            const date = document.getElementById('date').value;
+            const msg = document.getElementById('msg');
+
+            msg.textContent = "Booking...";
+            
+            // Yahan Render Link hai
+            try {
+                await fetch('https://my-smart-city-travel-guide-3.onrender.com/api/book', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, type: pkg, date })
+                });
+                msg.textContent = "✅ Trip Booked Successfully!";
+                msg.style.color = "green";
+                alert("Trip Booked!");
+            } catch (err) {
+                msg.textContent = "❌ Server Error";
+            }
+        }
+    </script>
+</body>
+</html>

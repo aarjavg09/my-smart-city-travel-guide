@@ -1,166 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Place Details - Smart City Travel</title>
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 0;
-      color: #333;
-    }
-
-    header {
-      background: #0078d7;
-      color: #fff;
-      text-align: center;
-      padding: 1rem;
-      font-size: 1.5rem;
-      font-weight: bold;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    .container {
-      max-width: 1000px;
-      margin: 30px auto;
-      background: #fff;
-      border-radius: 15px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-
-    .image-section img {
-      width: 100%;
-      height: 400px;
-      object-fit: cover;
-    }
-
-    .details {
-      padding: 20px;
-    }
-
-    .details h2 {
-      margin-top: 0;
-      color: #0078d7;
-      font-size: 2rem;
-    }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-top: 15px;
-    }
-
-    .info-box {
-      background: #f0f4f9;
-      padding: 15px;
-      border-radius: 10px;
-    }
-
-    .info-box strong {
-      display: block;
-      margin-bottom: 5px;
-      color: #444;
-    }
-
-    .nearby-section {
-      margin-top: 30px;
-    }
-
-    .nearby-section h3 {
-      margin-bottom: 10px;
-      color: #0078d7;
-    }
-
-    .food-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
-
-    .food-card {
-      background: #fff;
-      border: 1px solid #eee;
-      border-radius: 10px;
-      padding: 15px;
-      flex: 1 1 200px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      transition: transform 0.2s;
-    }
-
-    .food-card:hover {
-      transform: scale(1.05);
-    }
-
-    @media (max-width: 700px) {
-      .info-grid {
-        grid-template-columns: 1fr;
-      }
-      .image-section img {
-        height: 250px;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Local Food</title>
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: #fff3e0; text-align: center; padding: 40px; }
+        .container { background: white; padding: 30px; border-radius: 15px; width: 300px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #e65100; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: #ef6c00; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { background: #e65100; }
+    </style>
 </head>
 <body>
-
-  <header>Smart City Travel Guide</header>
-
-  <div class="container">
-    <div class="image-section">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/Gateway_of_India%2C_Mumbai.jpg" alt="Gateway of India" />
+    <div class="container">
+        <h2>🍔 Order Local Food</h2>
+        <input type="text" id="name" placeholder="Your Name" required>
+        <input type="text" id="dish" placeholder="Dish Name (e.g. Pizza)" required>
+        <input type="text" id="address" placeholder="Hotel/Delivery Address" required>
+        <button onclick="orderFood()">Order Now</button>
+        <p id="msg"></p>
     </div>
 
-    <div class="details">
-      <h2>Gateway of India, Mumbai</h2>
+    <script>
+        async function orderFood() {
+            const name = document.getElementById('name').value;
+            const dish = document.getElementById('dish').value;
+            const address = document.getElementById('address').value;
+            const msg = document.getElementById('msg');
 
-      <div class="info-grid">
-        <div class="info-box">
-          <strong>Timings:</strong>
-          6:00 AM – 10:00 PM
-        </div>
-        <div class="info-box">
-          <strong>Entry Fee:</strong>
-          Free
-        </div>
-        <div class="info-box">
-          <strong>Distance:</strong>
-          2.5 km from Mumbai CST Station
-        </div>
-        <div class="info-box">
-          <strong>Best Time to Visit:</strong>
-          Early Morning or Sunset
-        </div>
-      </div>
+            msg.textContent = "Ordering...";
 
-      <div class="nearby-section">
-        <h3>🍴 Nearby Food Spots</h3>
-        <div class="food-list" id="foodList"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const nearbyFood = [
-      { name: "Leopold Café", distance: "200m away" },
-      { name: "Bademiya", distance: "400m away" },
-      { name: "Café Mondegar", distance: "300m away" },
-      { name: "Pizza Express", distance: "500m away" },
-      { name: "The Taj Mahal Palace Dining", distance: "250m away" }
-    ];
-
-    const foodList = document.getElementById('foodList');
-
-    nearbyFood.forEach(spot => {
-      const card = document.createElement('div');
-      card.className = 'food-card';
-      card.innerHTML = `<strong>${spot.name}</strong><p>${spot.distance}</p>`;
-      foodList.appendChild(card);
-    });
-  </script>
+            try {
+                // Backend wahi same use hoga (Smart Move!)
+                await fetch('https://my-smart-city-travel-guide-3.onrender.com/api/book', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, type: "Food: " + dish, date: address })
+                });
+                msg.textContent = "✅ Food Ordered! It's coming.";
+                msg.style.color = "green";
+                alert("Yummy! Food is on the way.");
+            } catch (err) {
+                msg.textContent = "❌ Server Error";
+            }
+        }
+    </script>
 </body>
 </html>
